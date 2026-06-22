@@ -10,31 +10,53 @@ async function searchCountry() {
   result.innerHTML = "Loading...";
 
   try {
-const response = await fetch(`https://restcountries.com/v3.1/name/${encodeURIComponent(countryName)}`);
+    const url = "https://cdn.jsdelivr.net/gh/mledoze/countries@master/countries.json";
+    console.log("API URL:", url);
+
+    const response = await fetch(url);
+    console.log("Response status:", response.status);
+
     if (!response.ok) {
-      throw new Error("Country not found");
+      throw new Error("Country not found from API");
     }
 
     const data = await response.json();
-    const country = data[0];
+    const searchName = countryName.toLowerCase();
+
+    const country = data.find(function (item) {
+      const commonName = item.name.common.toLowerCase();
+      const officialName = item.name.official.toLowerCase();
+      const cca2 = item.cca2 ? item.cca2.toLowerCase() : "";
+      const cca3 = item.cca3 ? item.cca3.toLowerCase() : "";
+
+      return commonName === searchName ||
+             officialName === searchName ||
+             commonName.includes(searchName) ||
+             officialName.includes(searchName) ||
+             cca2 === searchName ||
+             cca3 === searchName;
+    });
+
+    if (!country) {
+      throw new Error("Country not found");
+    }
 
     const name = country.name.common;
     const capital = country.capital ? country.capital.join(", ") : "No capital";
-    const population = country.population.toLocaleString();
-    const region = country.region;
-    const flag = country.flags.png;
+    const region = country.region || "Not available";
+    const flag = `https://flagcdn.com/w320/${country.cca2.toLowerCase()}.png`;
     const currency = getMainCurrency(country);
 
     result.innerHTML = `
       <h2>${name}</h2>
       <img src="${flag}" alt="Country Flag">
       <p><strong>Capital:</strong> ${capital}</p>
-      <p><strong>Population:</strong> ${population}</p>
       <p><strong>Currency:</strong> ${currency}</p>
       <p><strong>Region:</strong> ${region}</p>
     `;
   } catch (error) {
-    result.innerHTML = "<p class='error'>Country not found</p>";
+    console.error("Real error:", error);
+    result.innerHTML = `<p class='error'>${error.message}</p>`;
   }
 }
 
@@ -78,14 +100,7 @@ function getMainCurrency(country) {
   }
 
   const currencyCodes = Object.keys(country.currencies);
-
-  let selectedCode;
-
-  if (mainCurrencyByCountry[country.cca3]) {
-    selectedCode = mainCurrencyByCountry[country.cca3];
-  } else {
-    selectedCode = currencyCodes[0];
-  }
+  let selectedCode = mainCurrencyByCountry[country.cca3] || currencyCodes[0];
 
   const selectedCurrency = country.currencies[selectedCode];
 
